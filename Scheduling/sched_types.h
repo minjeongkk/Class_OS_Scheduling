@@ -32,7 +32,7 @@ void initQueue(queue* q); // Queue 초기화
 int isEmpty(queue* q); // Queue 요소가 비었는지 체크
 void enqueue(queue* q, int pid); // Queue 삽입
 int dequeue(queue* q); // Queue 삭제
-int priority_queue(queue* q); //우선순위 큐
+void priority_queue(queue* q, int s_case, int time); //우선순위 큐
 
 void process1(); //첫번째 프로세스
 void process2(); // 두번째 프로세스
@@ -43,6 +43,6 @@ void sched_print(int print[NUM][SIZE], int n, int time); //그래프 출력함수
 void FCFS();
 //RR
 void SPN();
-//HRRN
+void HRRN();
 //MLFQ (q=1)
 //MLFQ (q=2^i)

@@ -11,6 +11,10 @@ int main() {
 	process1();
 	SPN();
 	printf("\n");
+	printf("===================HRRN(1)===================\n");
+	process1();
+	HRRN();
+	printf("\n\n");
 
 	process2();
 	printf("==================FIFO(2)==================\n");
@@ -20,5 +24,8 @@ int main() {
 	process2();
 	SPN();
 	printf("\n");
-
+	printf("===================HRRN(2)===================\n");
+	process2();
+	HRRN();
+	printf("\n");
 }
