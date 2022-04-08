@@ -34,6 +34,7 @@ void process1() {
     p[4].service = 2;
     p[4].runtime = 0;
 
+
     sortArrival(p);
 }
 
@@ -41,11 +42,11 @@ void process1() {
 void process2(){
     p[0].name = 'A';
     p[0].arrival = 0;
-    p[0].service = 4;
+    p[0].service = 2;
     p[0].runtime = 0;
 
     p[1].name = 'B';
-    p[1].arrival = 2;
+    p[1].arrival = 3;
     p[1].service = 5;
     p[1].runtime = 0;
 
@@ -72,6 +73,7 @@ void initQueue(queue* q) {
     q->rear = NULL;
     q->front = NULL;
     q->cnt = 0;
+    q->timeq = 1;
 }
 
 // 큐가 비어있는지 확인
@@ -106,14 +108,13 @@ int dequeue(queue* q) {
     int tmp;
     Node* point;
     if (isEmpty(q)) {
-        printf("Queue is Empty\n");
-        return 0;
+        return -1;
     }
     point = q->front;
     tmp = point->data;
     q->front = point->next;
-    free(point);
     q->cnt--;
+    free(point);
 
     return tmp;
 }
@@ -141,7 +142,7 @@ void priority_queue(queue* q, int s_case, int time) {
             }
         }
     }
-    //HRRN인 경우: 응답률이 높ㅇ느 순서대로 정렬
+    //HRRN인 경우: 응답률이 높은 순서대로 정렬
     else if (s_case == 2) {
         for (int i = 0; i < cnt; i++) {
             res1 =((time - p[proc[i]].arrival) + p[proc[i]].service) / p[proc[i]].service; //응답률
@@ -170,9 +171,14 @@ void sortArrival(process* p) {
         for (int j = i + 1; j < NUM; j++) {
             if (p[i].arrival > p[j].arrival) {
                 process tmp;
+                int tmp_pid;
                 tmp = p[i];
                 p[i] = p[j];
                 p[j] = tmp;
+
+                tmp_pid = p[i].pid;
+                p[i].pid = p[j].pid;
+                p[j].pid = tmp_pid;
             }
         }
     }
@@ -197,76 +203,108 @@ void FCFS() {
     int time = 0;
     int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;
     int pselect = 0;
-    int printarr[NUM][SIZE] = {0};
+    int be_pselect = 0;
+    int printarr[NUM][SIZE] = { 0 };
     queue cpu_q;
-    
+
     initQueue(&cpu_q);
-    
-    for (int i = 0; i < NUM; i++) {
-        enqueue(&cpu_q, p[i].pid);
-    }
+
+    enqueue(&cpu_q, p[pselect].pid);
 
     while (total != 0) {
-        pselect =dequeue(&cpu_q);
+        pselect = dequeue(&cpu_q);
 
+        if (pselect >= 0) {
+            for (int i = 0; i < p[pselect].service; i++) {
+                if (p[pselect].runtime == p[pselect].service) {
+                    break;
+                }
+                total--; // 전체 서비스 시간 감소
+                p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
+                printarr[pselect][time] = 1; // 실행표시 출력
+                time += 1; // 시간 1 증가
+                be_pselect = pselect;
+                
+                for (int j = pselect+1; j < NUM; j++) {
+                    if (time >= p[j].arrival) {
+                        enqueue(&cpu_q, p[j].pid);
+                    }
+                }
+            }
+        }
+
+        else {
+            for (int j = be_pselect+1; j < NUM; j++) {
+                if (time >= p[j].arrival) {
+                    enqueue(&cpu_q, p[j].pid);
+                }
+            }
+        }
+        if (total == 0) {
+            break;
+        }
         // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
-        if (isEmpty(&cpu_q)==1 && total==0) {
+        if (isEmpty(&cpu_q) == 1 ) {
             printarr[pselect][time] = 0;
             time += 1;
             continue;
-        }
-
-        for (int i = 0; i < p[pselect].service; i++) {
-            total--; // 전체 서비스 시간 감소
-            p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
-            printarr[pselect][time] = 1; // 실행표시 출력
-            time += 1; // 시간 1 증가
         }
 
     }
     sched_print(printarr, NUM, time);
 }
 
+// SPN
 void SPN() {
     int time = 0;
     int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;
     int pselect = 0;
     int printarr[NUM][SIZE] = { 0 };
     queue cpu_q;
-    int before=0;
+    int be_pselect=0;
 
     initQueue(&cpu_q);
 
     enqueue(&cpu_q, p[0].pid); //제일 처음거 넣기 
 
     while (total != 0) {
-    
-        // 프로세스를 실행완료했거나 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
-        if (isEmpty(&cpu_q) == 1 && total == 0) {
+        pselect = dequeue(&cpu_q);
+
+        if (pselect >= 0) {
+            for (int i = p[pselect].runtime; i < p[pselect].service; i++) {
+                total--; // 전체 서비스 시간 감소
+                p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
+                printarr[pselect][time] = 1; // 실행표시 출력
+                time += 1; // 시간 1 증가
+                be_pselect = pselect;
+
+                for (int j = pselect + 1; j < NUM; j++) {
+                    if (time >= p[j].arrival) {
+                        enqueue(&cpu_q, p[j].pid);
+                    }
+                }
+                priority_queue(&cpu_q, 1, time);
+            }
+        }
+
+        else {
+            for (int j = be_pselect + 1; j < NUM; j++) {
+                if (time >= p[j].arrival) {
+                    enqueue(&cpu_q, p[j].pid);
+                }
+            }
+            priority_queue(&cpu_q, 1, time);
+        }
+        if (total == 0) {
+            break;
+        }
+        // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
+        if (isEmpty(&cpu_q) == 1) {
             printarr[pselect][time] = 0;
             time += 1;
             continue;
         }
 
-        pselect = dequeue(&cpu_q); // 큐에서 값 하나 받아옴
-
-        for (int i = 0; i < p[pselect].service; i++) {
-            total--; // 전체 서비스 시간 감소
-            p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
-            printarr[pselect][time] = 1; // 실행표시 출력
-            time += 1; // 시간 1 증가
-
-            for (int j = before; j < NUM; j++) {
-                if (time >= p[j].arrival && p[j].runtime==0 ) {
-                    // 중복되지 않게 이전에 큐에 넣은 인덱스와 비교
-                    if (before != p[j].pid) {
-                        enqueue(&cpu_q, p[j].pid); // 전체 시간 전에 프로세스가 도착하고, 실행되지 않았으면 큐에 삽입
-                    }
-                    before = p[j].pid;
-                }
-            }
-            priority_queue(&cpu_q,1,time); //짧은 순서대로 정렬
-        }
     }
 
     sched_print(printarr, NUM, time);
@@ -278,39 +316,140 @@ void HRRN() {
     int pselect = 0;
     int printarr[NUM][SIZE] = { 0 };
     queue cpu_q;
-    int before = 0;
+    int be_pselect = 0;
 
     initQueue(&cpu_q);
 
     enqueue(&cpu_q, p[0].pid); //제일 처음거 넣기 
 
     while (total != 0) {
-        // 프로세스를 실행완료했거나 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
-        if (isEmpty(&cpu_q) == 1 && total == 0) {
+        pselect = dequeue(&cpu_q);
+
+        if (pselect >= 0) {
+            for (int i = p[pselect].runtime; i < p[pselect].service; i++) {
+                total--; // 전체 서비스 시간 감소
+                p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
+                printarr[pselect][time] = 1; // 실행표시 출력
+                time += 1; // 시간 1 증가
+                be_pselect = pselect;
+
+                for (int j = pselect + 1; j < NUM; j++) {
+                    if (time >= p[j].arrival) {
+                        enqueue(&cpu_q, p[j].pid);
+                    }
+                }
+                priority_queue(&cpu_q, 2, time);
+            }
+        }
+
+        else {
+            for (int j = be_pselect + 1; j < NUM; j++) {
+                if (time >= p[j].arrival) {
+                    enqueue(&cpu_q, p[j].pid);
+                }
+            }
+            priority_queue(&cpu_q, 2, time);
+        }
+        if (total == 0) {
+            break;
+        }
+        // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
+        if (isEmpty(&cpu_q) == 1) {
             printarr[pselect][time] = 0;
             time += 1;
             continue;
         }
 
-        pselect = dequeue(&cpu_q); // 큐에서 값 하나 받아옴
+    }
 
-        for (int i = 0; i < p[pselect].service; i++) {
-            total--; // 전체 서비스 시간 감소
-            p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
-            printarr[pselect][time] = 1; // 실행표시 출력
-            time += 1; // 시간 1 증가
+    sched_print(printarr, NUM, time);
+}
 
-            for (int j = before; j < NUM; j++) {
-                if (time >= p[j].arrival && p[j].runtime == 0) {
-                    // 중복되지 않게 이전에 큐에 넣은 인덱스와 비교
-                    if (before != p[j].pid) {
-                        enqueue(&cpu_q, p[j].pid); // 전체 시간 전에 프로세스가 도착하고, 실행되지 않았으면 큐에 삽입
+//RR
+void RR() {
+    int time = 0;
+    int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;
+    int pselect = 0;
+    int be_pselect = 0;
+    int printarr[NUM][SIZE] = { 0 };
+    queue cpu_q;
+
+    initQueue(&cpu_q);
+
+    enqueue(&cpu_q, p[pselect].pid);
+
+    while (total != 0) {
+        pselect = dequeue(&cpu_q);
+
+        if (pselect >= 0) {
+            for (int i = p[pselect].runtime; i < p[pselect].service; i++) {
+                total--; // 전체 서비스 시간 감소
+                p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
+                printarr[pselect][time] = 1; // 실행표시 출력
+                time += 1; // 시간 1 증가
+                be_pselect = pselect;
+
+                for (int j = 0; j < NUM; j++) {
+                    if (time >= p[j].arrival && pselect!=j) {
+                        enqueue(&cpu_q, p[j].pid);
                     }
-                    before = p[j].pid;
                 }
             }
-            priority_queue(&cpu_q, 2, time); // 응답률이 높은 순서대로 정렬
         }
+
+        else {
+            for (int j = 0; j < NUM; j++) {
+                if (time >= p[j].arrival && p[pselect].runtime == p[pselect].service) {
+                    enqueue(&cpu_q, p[j].pid);
+                }
+            }
+        }
+        if (total == 0) {
+            break;
+        }
+        // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
+        if (isEmpty(&cpu_q) == 1) {
+            printarr[pselect][time] = 0;
+            time += 1;
+            continue;
+        }
+
     }
     sched_print(printarr, NUM, time);
+}
+
+void lottery() {
+    // 전체 : 0~99 => A: 75 (0~74), B: 25 (75~99)
+    int ticket[2][20] = { 0 };
+    int lotto[20];
+    for (int i = 0; i < 20; i++) {
+        lotto[i] = rand() % 100; //0~99 사이의 번호 20개를 배열에 받음
+
+        if (lotto[i] < 75) { //0~74이면 행이 0인 배열에 1입력
+            ticket[0][i] = 1;
+        }
+        else { //0~74이면 행이 1인 배열에 1입력
+            ticket[1][i] = 1;
+        }
+    }
+
+    // 스케줄러 실행 결과 출력
+    printf("Here is output of a lottery schedulers's winning tickets:\n");
+    for (int i = 0; i < 20; i++) {
+        printf("%d ", lotto[i]);
+    }
+    printf("\n\n");
+    printf("Here is the resulting schedule:\n");
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 20; j++) {
+            if (ticket[i][j] == 1) {
+                printf("%c  ", 'A' + i);
+            }
+            else {
+                printf("   ");
+            }
+        }
+        printf("\n");
+    }
+
 }

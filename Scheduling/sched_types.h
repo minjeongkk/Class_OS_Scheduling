@@ -41,8 +41,10 @@ void sortArrival(process* p); //도착시간 정렬
 void sched_print(int print[NUM][SIZE], int n, int time); //그래프 출력함수
 
 void FCFS();
-//RR
+void RR();
 void SPN();
 void HRRN();
 //MLFQ (q=1)
 //MLFQ (q=2^i)
+
+void lottery();
