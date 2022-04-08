@@ -73,7 +73,7 @@ void initQueue(queue* q) {
     q->rear = NULL;
     q->front = NULL;
     q->cnt = 0;
-    q->timeq = 1;
+    q->timeq = 4;
 }
 
 // 큐가 비어있는지 확인
@@ -368,6 +368,7 @@ void HRRN() {
 //RR
 void RR() {
     int time = 0;
+    int timeslice = 0;
     int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;
     int pselect = 0;
     int be_pselect = 0;
@@ -382,24 +383,47 @@ void RR() {
         pselect = dequeue(&cpu_q);
 
         if (pselect >= 0) {
-            for (int i = p[pselect].runtime; i < p[pselect].service; i++) {
+            
+            if (p[pselect].runtime == p[pselect].service) {
+                pselect = dequeue(&cpu_q);
+            }
+            if (isEmpty(&cpu_q) == 0 && be_pselect==pselect) {
+                continue;
+            }
+
+            if (cpu_q.timeq > (p[pselect].service-p[pselect].runtime)) {
+                timeslice = (p[pselect].service - p[pselect].runtime);
+            }
+            else {
+                timeslice = cpu_q.timeq;
+            }
+
+            for (int j = 0; j < timeslice; j++) {
+                
                 total--; // 전체 서비스 시간 감소
                 p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
                 printarr[pselect][time] = 1; // 실행표시 출력
                 time += 1; // 시간 1 증가
-                be_pselect = pselect;
 
-                for (int j = 0; j < NUM; j++) {
-                    if (time >= p[j].arrival && pselect!=j) {
-                        enqueue(&cpu_q, p[j].pid);
+
+                for (int k = 0; k < NUM; k++) {
+                    if (time == p[k].arrival && pselect != k && p[k].runtime != p[k].service) {
+                        enqueue(&cpu_q, p[k].pid);
                     }
                 }
+                be_pselect = pselect;
             }
+            if (p[pselect].runtime != p[pselect].service) {
+                enqueue(&cpu_q, p[pselect].pid);
+            }
+
+              
+            
         }
 
         else {
             for (int j = 0; j < NUM; j++) {
-                if (time >= p[j].arrival && p[pselect].runtime == p[pselect].service) {
+                if (time == p[j].arrival && p[j].runtime != p[j].service) {
                     enqueue(&cpu_q, p[j].pid);
                 }
             }
@@ -409,7 +433,9 @@ void RR() {
         }
         // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
         if (isEmpty(&cpu_q) == 1) {
-            printarr[pselect][time] = 0;
+            if (pselect >= 0) {
+                printarr[pselect][time] = 0;
+            }
             time += 1;
             continue;
         }
