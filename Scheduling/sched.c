@@ -73,10 +73,10 @@ void initQueue(queue* q) {
     q->rear = NULL;
     q->front = NULL;
     q->cnt = 0;
-    q->timeq = 4;
+    q->timeq = 1;
 }
 
-// 큐가 비어있는지 확인
+// 큐가 비어있는지 확인, 비었으면 1 출력, 안비었으면 0 출력
 int isEmpty(queue* q) {
     if (q->cnt == 0) {
         return 1;
@@ -201,7 +201,7 @@ void sched_print(int print[NUM][SIZE], int n, int time) {
 //FCFS
 void FCFS() {
     int time = 0;
-    int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;
+    int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;// 총 서비스 시간
     int pselect = 0;
     int be_pselect = 0;
     int printarr[NUM][SIZE] = { 0 };
@@ -214,17 +214,19 @@ void FCFS() {
     while (total != 0) {
         pselect = dequeue(&cpu_q);
 
+        // 큐로부터 프로세스를 제대로 불러온 경우
         if (pselect >= 0) {
             for (int i = 0; i < p[pselect].service; i++) {
-                if (p[pselect].runtime == p[pselect].service) {
+                if (p[pselect].runtime == p[pselect].service) { //선택한 runtime과 service가 같으면 break
                     break;
                 }
                 total--; // 전체 서비스 시간 감소
                 p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
                 printarr[pselect][time] = 1; // 실행표시 출력
                 time += 1; // 시간 1 증가
-                be_pselect = pselect;
+                be_pselect = pselect; // 수행한 pselect 저장
                 
+                // 실행시간 동안 도착한 프로세스가 있으면 큐에 넣음
                 for (int j = pselect+1; j < NUM; j++) {
                     if (time >= p[j].arrival) {
                         enqueue(&cpu_q, p[j].pid);
@@ -232,10 +234,93 @@ void FCFS() {
                 }
             }
         }
-
+        // 큐에 아무것도 없어 프로세스를 불러오지 못한 경우
         else {
+            // 1 증가된 시간에서 도착한 것이 있으면 큐에 넣음
             for (int j = be_pselect+1; j < NUM; j++) {
                 if (time >= p[j].arrival) {
+                    enqueue(&cpu_q, p[j].pid);
+                }
+            }
+        }
+        // total 시간이 0이 되면 종료
+        if (total == 0) {
+            break;
+        }
+        // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
+        if (isEmpty(&cpu_q) == 1 ) {
+            if (pselect >= 0) { //pselect가 0이상일 때 그래프에 넣음
+                printarr[pselect][time] = 0;
+            }
+            time += 1;
+            continue;
+        }
+
+    }
+    // 출력
+    sched_print(printarr, NUM, time);
+}
+
+//RR
+void RR() {
+    int time = 0;
+    int timeslice = 0;
+    int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service; //총 서비스 시간
+    int pselect = 0;
+    int be_pselect = 0;
+    int printarr[NUM][SIZE] = { 0 };
+    queue cpu_q;
+
+    initQueue(&cpu_q);
+
+    enqueue(&cpu_q, p[pselect].pid);
+
+    while (total != 0) {
+        pselect = dequeue(&cpu_q);
+        // 큐로부터 프로세스를 제대로 불러온 경우
+        if (pselect >= 0) {
+            // 완료된것이 큐에 들어와있으면 다른 프로세스로 변경
+            if (p[pselect].runtime == p[pselect].service) {
+                pselect = dequeue(&cpu_q);
+            }
+
+            // time quantum 설정
+            if (cpu_q.timeq > (p[pselect].service - p[pselect].runtime)) {
+                timeslice = (p[pselect].service - p[pselect].runtime);
+            }
+            else {
+                timeslice = cpu_q.timeq;
+            }
+
+            // timeslice만큼 실행
+            for (int j = 0; j < timeslice; j++) {
+
+                total--; // 전체 서비스 시간 감소
+                p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
+                printarr[pselect][time] = 1; // 실행표시 출력
+                time += 1; // 시간 1 증가
+
+                // 실행시간동안 들어온 큐가 있으면 큐에 넣음
+                for (int k = 0; k < NUM; k++) {
+                    if (time == p[k].arrival && pselect != k && p[k].runtime != p[k].service) {
+                        enqueue(&cpu_q, p[k].pid);
+                    }
+                }
+                be_pselect = pselect;
+            }
+            // 실행중인 프로세스가 끝나지 않았으면 다시 큐에 넣음
+            if (p[pselect].runtime != p[pselect].service) {
+                enqueue(&cpu_q, p[pselect].pid);
+            }
+
+
+
+        }
+        // 큐에 아무것도 없어 프로세스를 불러오지 못한 경우
+        else {
+            // 1 증가된 시간에서 도착한 것이 있으면 큐에 넣음
+            for (int j = 0; j < NUM; j++) {
+                if (time == p[j].arrival && p[j].runtime != p[j].service) {
                     enqueue(&cpu_q, p[j].pid);
                 }
             }
@@ -244,8 +329,10 @@ void FCFS() {
             break;
         }
         // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
-        if (isEmpty(&cpu_q) == 1 ) {
-            printarr[pselect][time] = 0;
+        if (isEmpty(&cpu_q) == 1) {
+            if (pselect >= 0) { //pselect가 0이상일 때 그래프에 넣음
+                printarr[pselect][time] = 0;
+            }
             time += 1;
             continue;
         }
@@ -257,7 +344,7 @@ void FCFS() {
 // SPN
 void SPN() {
     int time = 0;
-    int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;
+    int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service; // 총 서비스 시간
     int pselect = 0;
     int printarr[NUM][SIZE] = { 0 };
     queue cpu_q;
@@ -270,6 +357,7 @@ void SPN() {
     while (total != 0) {
         pselect = dequeue(&cpu_q);
 
+        // 큐로부터 프로세스를 제대로 불러온 경우
         if (pselect >= 0) {
             for (int i = p[pselect].runtime; i < p[pselect].service; i++) {
                 total--; // 전체 서비스 시간 감소
@@ -278,35 +366,40 @@ void SPN() {
                 time += 1; // 시간 1 증가
                 be_pselect = pselect;
 
+                // 실행시간동안 도착한 프로세스가 있으면 큐에 넣음
                 for (int j = pselect + 1; j < NUM; j++) {
                     if (time >= p[j].arrival) {
                         enqueue(&cpu_q, p[j].pid);
                     }
                 }
-                priority_queue(&cpu_q, 1, time);
+                priority_queue(&cpu_q, 1, time); //우선순위로 정렬
             }
         }
 
+        // 큐에 아무것도 없어 프로세스를 불러오지 못한 경우
         else {
+            // 1 증가된 시간에서 도착한 것이 있으면 큐에 넣음
             for (int j = be_pselect + 1; j < NUM; j++) {
                 if (time >= p[j].arrival) {
                     enqueue(&cpu_q, p[j].pid);
                 }
             }
-            priority_queue(&cpu_q, 1, time);
+            priority_queue(&cpu_q, 1, time); //우선순위로 정렬
         }
         if (total == 0) {
             break;
         }
         // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
         if (isEmpty(&cpu_q) == 1) {
-            printarr[pselect][time] = 0;
+            if (pselect >= 0) { //pselect가 0이상일 때 그래프에 넣음
+                printarr[pselect][time] = 0;
+            }
             time += 1;
             continue;
         }
 
     }
-
+    //출력
     sched_print(printarr, NUM, time);
 }
 
@@ -324,7 +417,7 @@ void HRRN() {
 
     while (total != 0) {
         pselect = dequeue(&cpu_q);
-
+        // 큐로부터 프로세스를 제대로 불러온 경우
         if (pselect >= 0) {
             for (int i = p[pselect].runtime; i < p[pselect].service; i++) {
                 total--; // 전체 서비스 시간 감소
@@ -332,108 +425,31 @@ void HRRN() {
                 printarr[pselect][time] = 1; // 실행표시 출력
                 time += 1; // 시간 1 증가
                 be_pselect = pselect;
-
+                // 실행시간동안 도착한 프로세스가 있으면 큐에 넣음
                 for (int j = pselect + 1; j < NUM; j++) {
                     if (time >= p[j].arrival) {
                         enqueue(&cpu_q, p[j].pid);
                     }
                 }
-                priority_queue(&cpu_q, 2, time);
+                priority_queue(&cpu_q, 2, time); //우선순위로 정렬
             }
         }
-
+        // 큐에 아무것도 없어 프로세스를 불러오지 못한 경우
         else {
+            // 1 증가된 시간에서 도착한 것이 있으면 큐에 넣음
             for (int j = be_pselect + 1; j < NUM; j++) {
                 if (time >= p[j].arrival) {
                     enqueue(&cpu_q, p[j].pid);
                 }
             }
-            priority_queue(&cpu_q, 2, time);
+            priority_queue(&cpu_q, 2, time); //우선순위로 정렬
         }
         if (total == 0) {
             break;
         }
         // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
         if (isEmpty(&cpu_q) == 1) {
-            printarr[pselect][time] = 0;
-            time += 1;
-            continue;
-        }
-
-    }
-
-    sched_print(printarr, NUM, time);
-}
-
-//RR
-void RR() {
-    int time = 0;
-    int timeslice = 0;
-    int total = p[0].service + p[1].service + p[2].service + p[3].service + p[4].service;
-    int pselect = 0;
-    int be_pselect = 0;
-    int printarr[NUM][SIZE] = { 0 };
-    queue cpu_q;
-
-    initQueue(&cpu_q);
-
-    enqueue(&cpu_q, p[pselect].pid);
-
-    while (total != 0) {
-        pselect = dequeue(&cpu_q);
-
-        if (pselect >= 0) {
-            
-            if (p[pselect].runtime == p[pselect].service) {
-                pselect = dequeue(&cpu_q);
-            }
-            if (isEmpty(&cpu_q) == 0 && be_pselect==pselect) {
-                continue;
-            }
-
-            if (cpu_q.timeq > (p[pselect].service-p[pselect].runtime)) {
-                timeslice = (p[pselect].service - p[pselect].runtime);
-            }
-            else {
-                timeslice = cpu_q.timeq;
-            }
-
-            for (int j = 0; j < timeslice; j++) {
-                
-                total--; // 전체 서비스 시간 감소
-                p[pselect].runtime++; // 해당 프로세스 runtime 1 증가
-                printarr[pselect][time] = 1; // 실행표시 출력
-                time += 1; // 시간 1 증가
-
-
-                for (int k = 0; k < NUM; k++) {
-                    if (time == p[k].arrival && pselect != k && p[k].runtime != p[k].service) {
-                        enqueue(&cpu_q, p[k].pid);
-                    }
-                }
-                be_pselect = pselect;
-            }
-            if (p[pselect].runtime != p[pselect].service) {
-                enqueue(&cpu_q, p[pselect].pid);
-            }
-
-              
-            
-        }
-
-        else {
-            for (int j = 0; j < NUM; j++) {
-                if (time == p[j].arrival && p[j].runtime != p[j].service) {
-                    enqueue(&cpu_q, p[j].pid);
-                }
-            }
-        }
-        if (total == 0) {
-            break;
-        }
-        // 실행할 프로세스가 없을 때, 공백을 출력하고 시간을 1 증가
-        if (isEmpty(&cpu_q) == 1) {
-            if (pselect >= 0) {
+            if (pselect >= 0) { //pselect가 0이상일 때 그래프에 넣음
                 printarr[pselect][time] = 0;
             }
             time += 1;
@@ -441,8 +457,10 @@ void RR() {
         }
 
     }
+    //출력
     sched_print(printarr, NUM, time);
 }
+
 
 void lottery() {
     // 전체 : 0~99 => A: 75 (0~74), B: 25 (75~99)

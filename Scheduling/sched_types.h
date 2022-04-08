@@ -46,5 +46,4 @@ void SPN();
 void HRRN();
 //MLFQ (q=1)
 //MLFQ (q=2^i)
-
 void lottery();
